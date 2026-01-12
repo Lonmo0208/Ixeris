@@ -27,6 +27,8 @@ public class MouseButtonCallbackDispatcher {
 
     private volatile boolean isGameActive = true;
 
+    private static volatile boolean isDisconnecting = false;
+
     private MouseButtonCallbackDispatcher(long window) {
         this.window = window;
     }
@@ -89,15 +91,7 @@ public class MouseButtonCallbackDispatcher {
             return;
         }
 
-        if (!isGameActive) {
-            return;
-        }
-
-        try {
-            if (Ixeris.getInstance() != null && Ixeris.getInstance().isDisconnecting()) {
-                return;
-            }
-        } catch (Exception e) {
+        if (!isGameActive || isDisconnecting) {
             return;
         }
 
@@ -106,7 +100,7 @@ public class MouseButtonCallbackDispatcher {
         }
         if (lastCallback != null) {
             RenderThreadDispatcher.runLater((DispatchedRunnable) () -> {
-                if (!isGameActive || lastCallback == null) {
+                if (!isGameActive || isDisconnecting || lastCallback == null) {
                     return;
                 }
                 try {
@@ -124,6 +118,15 @@ public class MouseButtonCallbackDispatcher {
             mainThreadCallbacks.clear();
             lastCallback = null;
             lastCallbackAddress = 0L;
+        }
+    }
+
+    public static void setDisconnecting(boolean disconnecting) {
+        isDisconnecting = disconnecting;
+        if (disconnecting) {
+            for (var dispatcher : instance.values()) {
+                dispatcher.setGameActive(false);
+            }
         }
     }
 
