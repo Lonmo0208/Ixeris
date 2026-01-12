@@ -17,6 +17,28 @@ public class Ixeris {
 
     private static IxerisConfig config;
 
+    private volatile boolean disconnecting = false;
+
+    public boolean isDisconnecting() {
+        return disconnecting;
+    }
+
+    public void setDisconnecting(boolean disconnecting) {
+        this.disconnecting = disconnecting;
+        MouseButtonCallbackDispatcher.cleanupAll();
+        RenderThreadDispatcher.setDisconnecting(disconnecting);
+    }
+
+    public void onDisconnect() {
+        setDisconnecting(true);
+        RenderThreadDispatcher.cleanup();
+    }
+
+    public void onConnect() {
+        setDisconnecting(false);
+        RenderThreadDispatcher.setActive(true);
+    }
+
     public static IxerisConfig getConfig() {
         if (config == null) {
             config = IxerisConfig.load();

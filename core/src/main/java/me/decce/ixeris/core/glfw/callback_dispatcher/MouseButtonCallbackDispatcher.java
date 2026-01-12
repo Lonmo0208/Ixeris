@@ -25,6 +25,8 @@ public class MouseButtonCallbackDispatcher {
     private final long window;
     public volatile boolean suppressChecks;
 
+    private volatile boolean isGameActive = true;
+
     private MouseButtonCallbackDispatcher(long window) {
         this.window = window;
     }
@@ -86,16 +88,50 @@ public class MouseButtonCallbackDispatcher {
         if (this.window != window) {
             return;
         }
+
+        if (!isGameActive) {
+            return;
+        }
+
+        try {
+            if (Ixeris.getInstance() != null && Ixeris.getInstance().isDisconnecting()) {
+                return;
+            }
+        } catch (Exception e) {
+            return;
+        }
+
         for (int i = 0; i < mainThreadCallbacks.size(); i++) {
             mainThreadCallbacks.get(i).invoke(window, button, action, mods);
         }
         if (lastCallback != null) {
             RenderThreadDispatcher.runLater((DispatchedRunnable) () -> {
-                if (lastCallback != null) {
+                if (!isGameActive || lastCallback == null) {
+                    return;
+                }
+                try {
                     lastCallback.invoke(window, button, action, mods);
+                } catch (Exception e) {
+                    Ixeris.LOGGER.error("Error in mouse callback", e);
                 }
             });
         }
+    }
+
+    public synchronized void setGameActive(boolean active) {
+        this.isGameActive = active;
+        if (!active) {
+            mainThreadCallbacks.clear();
+            lastCallback = null;
+            lastCallbackAddress = 0L;
+        }
+    }
+
+    public synchronized static void cleanupAll() {
+        for (var dispatcher : instance.values()) {
+            dispatcher.setGameActive(false);
+        }
+        instance.clear();
     }
 
     @FunctionalInterface
